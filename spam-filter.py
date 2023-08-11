@@ -91,17 +91,51 @@ def find_spam_and_ham_probability(train_set):
     return probability_df
 
 
+def classify_sentence(row, probability_set, spam_count, ham_count):
+    sms_list = row['SMS'].split()
+    spam_probability = spam_count / (spam_count + ham_count)
+    ham_probability = ham_count / (spam_count + ham_count)
+
+    for word in sms_list:
+        if word in probability_set.index:
+            spam_probability *= probability_set.loc[word]['Spam Probability']
+            ham_probability *= probability_set.loc[word]['Ham Probability']
+
+    predicted = 'unknown'
+    if spam_probability > ham_probability:
+        predicted = 'spam'
+    elif spam_probability < ham_probability:
+        predicted = 'ham'
+
+    return pd.Series({'Predicted': predicted, 'Actual': row['Target']})
+
+
 def main():
     transform_data()
     df_random = df.sample(frac=1, random_state=43)
     df_random.reset_index(drop=True, inplace=True)
     train_last_index = int(df_random.shape[0] * 0.8)
     train_set = df_random[0:train_last_index]
+    test_set = df_random[train_last_index:]
 
-    df_random = find_spam_and_ham_probability(train_set)
-    pd.options.display.max_columns = df_random.shape[1]
-    pd.options.display.max_rows = df_random.shape[0]
-    print(df_random.head(200))
+    probability_df = find_spam_and_ham_probability(train_set)
+    spam_count = test_set[test_set['Target'] == 'spam'].shape[0]
+    ham_count = test_set[test_set['Target'] == 'ham'].shape[0]
+    classify_df = test_set.apply(classify_sentence, axis=1, args=(probability_df, spam_count, ham_count))
+
+    test_set = test_set.drop(columns=['Target'])
+    result_df = pd.concat([test_set, classify_df], axis=1)
+    result_df.columns = ['Target', 'Predicted', 'Actual']
+    result_df = result_df.reset_index(drop=True)
+
+    pd.options.display.max_columns = probability_df.shape[1]
+    pd.options.display.max_rows = probability_df.shape[0]
+    print(probability_df.head(200))
+
+    print('\n------------------------------------------------------------------------\n')
+    pd.options.display.max_columns = result_df.shape[1]
+    pd.options.display.max_rows = result_df.shape[0]
+    print(result_df.head(200))
 
 
 if __name__ == '__main__':
