@@ -110,6 +110,30 @@ def classify_sentence(row, probability_set, spam_count, ham_count):
     return pd.Series({'Predicted': predicted, 'Actual': row['Target']})
 
 
+def calculate_confusion_matrix(dataframe):
+    TP = 0
+    TN = 0
+    FP = 0
+    FN = 0
+    for i in dataframe.index:
+        if dataframe.at[i, 'Predicted'] == 'spam' and dataframe.at[i, 'Actual'] == 'spam':
+            TP += 1
+        elif dataframe.at[i, 'Predicted'] == 'ham' and dataframe.at[i, 'Actual'] == 'ham':
+            TN += 1
+        elif dataframe.at[i, 'Predicted'] == 'spam' and dataframe.at[i, 'Actual'] == 'ham':
+            FP += 1
+        elif dataframe.at[i, 'Predicted'] == 'ham' and dataframe.at[i, 'Actual'] == 'spam':
+            FN += 1
+
+    accuracy = (TP + TN) / (TP + TN + FP + FN)
+    recall = TP / (TP + FN)
+    precision = TP / (TP + FP)
+    F1 = 2 * precision * recall / (precision + recall)
+    performance_results = {'Accuracy': accuracy, 'Recall': recall, 'Precision': precision, 'F1': F1}
+
+    return performance_results
+
+
 def main():
     transform_data()
     df_random = df.sample(frac=1, random_state=43)
@@ -136,6 +160,10 @@ def main():
     pd.options.display.max_columns = result_df.shape[1]
     pd.options.display.max_rows = result_df.shape[0]
     print(result_df.head(200))
+
+    print('\n------------------------------------------------------------------------\n')
+    classify_df = classify_df.reset_index()
+    print(calculate_confusion_matrix(classify_df))
 
 
 if __name__ == '__main__':
