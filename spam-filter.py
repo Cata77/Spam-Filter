@@ -4,6 +4,8 @@ from string import punctuation
 import pandas as pd
 import spacy
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
 
 df = pd.read_csv('spam.csv', encoding='iso-8859-1', usecols=['v1', 'v2'])
 df.rename(columns={'v1': 'Target', 'v2': 'SMS'}, inplace=True)
@@ -38,14 +40,10 @@ def transform_data():
         df.at[i, 'SMS'] = remove_spacy_stopwords(df.at[i, 'SMS'])
 
 
-def bag_of_words(train_set, category, operation="train"):
-    spam_sms_texts = train_set[train_set['Target'] == category]['SMS']
-    vector = CountVectorizer()
-    spam_word_counts = vector.fit_transform(spam_sms_texts)
-    sum_word_counts_spam = spam_word_counts.sum(axis=0)
-    vocabulary = vector.get_feature_names_out()
-    word_count_spam = dict(zip(vocabulary, sum_word_counts_spam.tolist()[0]))
-    return word_count_spam
+def bag_of_words(data_set, vector):
+    train_bow = vector.transform(data_set['SMS'])
+    data_df = pd.DataFrame(train_bow.toarray(), columns=vector.get_feature_names_out())
+    return data_df
 
 
 def find_spam_and_ham_probability(train_set):
@@ -134,6 +132,38 @@ def calculate_confusion_matrix(dataframe):
     return performance_results
 
 
+def convert_column_to_binary(dataframe):
+    dataframe['Target'] = (dataframe['Target'] == 'spam').astype('int')
+    return dataframe
+
+
+def model_performance(train_set, test_set):
+    vector = CountVectorizer()
+    vector.fit(train_set['SMS'])
+    train_bow = bag_of_words(train_set, vector)
+    test_bow = bag_of_words(test_set, vector)
+
+    train_set = convert_column_to_binary(train_set)
+    test_set = convert_column_to_binary(test_set)
+
+    model = MultinomialNB()
+    X_train = train_bow.values
+    y_train = train_set['Target'].values
+    model.fit(X_train, y_train)
+
+    X_test = test_bow.values
+    y_test = test_set['Target'].values
+    predictions = model.predict(X_test)
+
+    accuracy = accuracy_score(y_test, predictions)
+    recall = recall_score(y_test, predictions)
+    precision = precision_score(y_test, predictions)
+    f1 = f1_score(y_test, predictions)
+    performance_results = {'Accuracy': accuracy, 'Recall': recall, 'Precision': precision, 'F1': f1}
+
+    return performance_results
+
+
 def main():
     transform_data()
     df_random = df.sample(frac=1, random_state=43)
@@ -141,6 +171,7 @@ def main():
     train_last_index = int(df_random.shape[0] * 0.8)
     train_set = df_random[0:train_last_index]
     test_set = df_random[train_last_index:]
+    test_set_model = pd.DataFrame(test_set)
 
     probability_df = find_spam_and_ham_probability(train_set)
     spam_count = test_set[test_set['Target'] == 'spam'].shape[0]
@@ -164,6 +195,9 @@ def main():
     print('\n------------------------------------------------------------------------\n')
     classify_df = classify_df.reset_index()
     print(calculate_confusion_matrix(classify_df))
+
+    print('\n------------------------------------------------------------------------\n')
+    print('Model performance:\n', model_performance(train_set, test_set_model))
 
 
 if __name__ == '__main__':
