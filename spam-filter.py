@@ -48,35 +48,31 @@ def bag_of_words(data_set, vector):
 
 def find_spam_and_ham_probability(train_set):
 
-    alpha = 1  # Laplace smoothing parameter
+    alpha = 1
 
     vector = CountVectorizer()
     all_sms_texts = train_set['SMS']
     vector.fit(all_sms_texts)
 
-    # Transform both spam and ham SMS texts into matrices of word counts
     spam_word_counts = vector.transform(train_set[train_set['Target'] == 'spam']['SMS'])
     ham_word_counts = vector.transform(train_set[train_set['Target'] == 'ham']['SMS'])
 
-    # Sum the word counts across all documents to get the count of each word
     sum_word_counts_spam = spam_word_counts.sum(axis=0)
     sum_word_counts_ham = ham_word_counts.sum(axis=0)
     total_spam_words = spam_word_counts.sum()
     total_ham_words = ham_word_counts.sum()
 
-    # Get the vocabulary from the vector
     vocabulary = vector.get_feature_names_out()
 
-    # Create a dictionary to store word counts for spam and ham
     word_count_spam = dict(zip(vocabulary, sum_word_counts_spam.tolist()[0]))
     word_count_ham = dict(zip(vocabulary, sum_word_counts_ham.tolist()[0]))
 
     spam_probability_list = []
     ham_probability_list = []
 
-    for word in vocabulary:  # Iterate over the vocabulary
-        spam_count = word_count_spam.get(word, 0)  # Get the count of the word in spam (default to 0 if not found)
-        ham_count = word_count_ham.get(word, 0)  # Get the count of the word in ham (default to 0 if not found)
+    for word in vocabulary:
+        spam_count = word_count_spam.get(word, 0)
+        ham_count = word_count_ham.get(word, 0)
 
         spam_probability = (spam_count + alpha) / (total_spam_words + alpha * len(vocabulary))
         ham_probability = (ham_count + alpha) / (total_ham_words + alpha * len(vocabulary))
